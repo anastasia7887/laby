@@ -114,3 +114,59 @@ p.logit <- predict(model.logit, df.test, type = 'response')
                   labels = c('No', 'Yes'))
 head(Прогноз)
 
+#ROC кривая
+p.logit <- predict(model.logit, df.train, type = 'response')
+
+Прогноз <- factor(ifelse(p.logit > 0.5, 2, 1), levels = c(1 ,2),
+                  labels = c('No', 'Yes'))
+# считаем 1-SPC и TPR для всех вариантов границы отсечения
+x <- NULL    # для (1 - SPC)
+y <- NULL    # для TPR
+
+# заготовка под матрицу неточностей
+tbl <- as.data.frame(matrix(rep(0, 4), 2, 2))
+rownames(tbl) <- c('fact.No', 'fact.Yes')
+colnames(tbl) <- c('predict.No', 'predict.Yes')
+Факт <- data$y
+# цикл по вероятностям отсечения
+for (p in seq(0, 1, length = 501)){
+  # прогноз
+  Прогноз <- factor(ifelse(p.logit > 0.5, 2, 1), levels = c(1 ,2),
+                    labels = c('No', 'Yes'))
+  
+  
+  # фрейм со сравнением факта и прогноза
+  df.compare <- data.frame(Факт = Факт, Прогноз = Прогноз)
+  
+  # заполняем матрицу неточностей
+  # TN
+  tbl[1, 1] <- nrow(df.compare[df.compare$Факт == 'No' & df.compare$Прогноз == 'No', ])
+  
+  # TP
+  tbl[2, 2] <- nrow(df.compare[df.compare$Факт == 'Yes' & df.compare$Прогноз == 'Yes', ])
+  
+  # FP
+  tbl[1, 2] <- nrow(df.compare[df.compare$Факт == 'No' & df.compare$Прогноз == 'Yes', ])
+  
+  # FN
+  tbl[2, 1] <- nrow(df.compare[df.compare$Факт == 'Yes' & df.compare$Прогноз == 'No', ])
+  
+  
+  # считаем характеристики
+  TPR <- conf.m[2, 2] / sum(conf.m[2, ])
+  y <- c(y, TPR)
+  SPC <- conf.m[1, 1] / sum(conf.m[1, ])
+  x <- c(x, 1 - SPC)
+}
+conf.m <- table(Факт, Прогноз)
+conf.m
+
+# строим ROC-кривую
+par(mar = c(5, 5, 1, 1))
+# кривая
+plot(x, y, 
+     type = 'l', col = 'blue', lwd = 3,
+     xlab = '(1 - SPC)', ylab = 'TPR', 
+     xlim = c(0, 1), ylim = c(0, 1))
+# прямая случайного классификатора
+abline(a = 0, b = 1, lty = 3, lwd = 2)
